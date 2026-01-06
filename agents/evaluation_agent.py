@@ -3,80 +3,73 @@ from services.openai_client import get_chat_completion
 
 def evaluate_interview(conversation, job_context):
     """
-    Strict evaluation based on:
-    1. What the candidate actually said (conversation)
-    2. How well it matches the Job Description (resource)
-
-    Output: English only
+    Evaluates the interview based on:
+    - Candidate responses in the conversation
+    - Job description / JD content
+    Returns a structured recruiter-style evaluation in English.
     """
 
-    # Extract only candidate responses
+    # Extract only candidate answers
     candidate_answers = [
-        msg["content"].strip()
+        msg["content"]
         for msg in conversation
-        if msg["role"] == "candidate"
+        if msg["role"] == "user"
     ]
 
-    # If candidate barely spoke → reject immediately
-    if len(candidate_answers) < 3:
-        return """
-### ❌ Overall Verdict: NOT A GOOD FIT
-
-**Reason:**
-- The interview conversation was too short.
-- The candidate did not provide enough information to evaluate against the job requirements.
-
-**JD Match Analysis:**
-- No evidence of required skills or experience mentioned.
-
-**Final Recommendation:**
-❌ Reject — insufficient interview data.
-"""
-
-    combined_answers = " ".join(candidate_answers)
+    conversation_text = "\n".join(candidate_answers)
 
     system_prompt = """
-You are a strict HR evaluator.
-
-IMPORTANT RULES:
-- Evaluate ONLY based on the interview conversation and the Job Description
-- Do NOT assume skills or experience
-- Do NOT be polite or optimistic
-- If candidate answers do NOT clearly match JD requirements, mark NOT A GOOD FIT
-- Respond ONLY in English
+You are a professional HR recruiter evaluating a housekeeping candidate.
 
 Your task:
-1. Extract key requirements from the Job Description
-2. Extract key skills/experience from the candidate's answers
-3. Compare them explicitly
-4. Decide fit ONLY if there is clear overlap
+1. Carefully analyze the Job Description.
+2. Analyze the candidate's interview answers.
+3. Judge alignment between the two.
 
-Evaluation Criteria:
-- Relevant experience mentioned by candidate
-- Duties handled match JD responsibilities
-- Availability/work expectations align with JD
-- Communication clarity
-- Willingness/attitude
+IMPORTANT RULES:
+- Do NOT assume skills that are not explicitly stated.
+- If answers are short or vague, treat that as a weakness.
+- If the candidate barely answered questions, mark NOT A GOOD FIT.
+- Be strict but fair.
+- Output must be ONLY in English.
+- Use simple, clear language (non-technical).
 
-If any major JD requirement is missing from the candidate answers,
-the verdict MUST be NOT A GOOD FIT.
+Return the evaluation in EXACTLY the following format:
+
+### Candidate Evaluation Report
+
+**Strengths**
+- Bullet points
+
+**Weaknesses**
+- Bullet points
+
+**Concerns / Risks**
+- Bullet points (if any)
+
+**Overall Fit Assessment**
+GOOD FIT / NOT A GOOD FIT
+
+**Reasoning**
+2–4 sentences clearly explaining WHY this verdict was given.
+"""
+
+    user_prompt = f"""
+JOB DESCRIPTION:
+{job_context}
+
+CANDIDATE INTERVIEW ANSWERS:
+{conversation_text}
 """
 
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "system", "content": f"Job Description:\n{job_context}"},
-        {
-            "role": "user",
-            "content": f"""
-Interview Transcript (source of truth):
-{conversation}
-
-Candidate Answers:
-{combined_answers}
-
-Evaluate STRICTLY based on JD alignment.
-"""
-        }
+        {"role": "user", "content": user_prompt},
     ]
 
-    return get_chat_completion(messages, temperature=0.1)
+    evaluation = get_chat_completion(
+        messages=messages,
+        temperature=0.3  # low temp = more stable verdicts
+    )
+
+    return evaluation
