@@ -9,7 +9,7 @@ from services.text_to_speech import speak_text
 
 # ---------------- PAGE SETUP ----------------
 st.set_page_config(page_title="AI Interview Agent (Voice)", layout="wide")
-st.title("🧠 AI Interview Agent (Voice)")
+st.title("AI Interview Agent (Voice)")
 
 # ---------------- HELPER ----------------
 def get_welcome_text(language):
@@ -17,6 +17,9 @@ def get_welcome_text(language):
         return "ನಮಸ್ಕಾರ! ನಿಮ್ಮನ್ನು ಸಂದರ್ಶನಕ್ಕೆ ಸ್ವಾಗತಿಸುತ್ತೇವೆ. ಮೊದಲು ನಿಮ್ಮ ಹೆಸರನ್ನು ಹೇಳಿ."
     else:
         return "नमस्ते! आपका स्वागत है। सबसे पहले कृपया अपना नाम बताइए।"
+
+def get_stt_language_code(language):
+    return "kn" if language == "Kannada" else "hi"
 
 # ---------------- SESSION STATE ----------------
 if "conversation" not in st.session_state:
@@ -79,9 +82,9 @@ st.subheader("💬 Interview Conversation")
 
 for msg in st.session_state.conversation:
     if msg["role"] == "interviewer":
-        st.markdown(f"🎤 **इंटरव्यूअर:** {msg['content']}")
+        st.markdown(f" **इंटरव्यूअर:** {msg['content']}")
     else:
-        st.markdown(f"🧑 **उम्मीदवार:** {msg['content']}")
+        st.markdown(f" **उम्मीदवार:** {msg['content']}")
 
 # ---------------- PLAY AI AUDIO ----------------
 if st.session_state.pending_audio:
@@ -103,7 +106,11 @@ if st.session_state.started and not st.session_state.ended:
                 f.write(audio.getbuffer())
                 audio_path = f.name
 
-            user_text = transcribe_audio(audio_path)
+            # ✅ FIX: pass language code explicitly
+            user_text = transcribe_audio(
+                audio_path,
+                language_code=get_stt_language_code(st.session_state.language)
+            )
 
             st.session_state.conversation.append({
                 "role": "candidate",
